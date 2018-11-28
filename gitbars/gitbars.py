@@ -16,18 +16,28 @@ import sys
 from subprocess import check_output
 import argparse
 from collections import OrderedDict
+import datetime
 
 
 def print_bars(items, block=u"\u2580", width=50):
     """Print unicode bar representations of dates and scores."""
     for i in items:
-        num = str(items[i][0])
+        num = str(items[i]["commits"])
 
         sys.stdout.write(i)
         sys.stdout.write("  ")
         sys.stdout.write(num)
         sys.stdout.write((5 - len(num)) * " ")
-        sys.stdout.write(block * int(items[i][1] * width))
+
+        # Colour the weekend bars.
+        if items[i]["weekend"]:
+            sys.stdout.write("\033[94m")
+
+        sys.stdout.write(block * int(items[i]["score"] * width))
+
+        if items[i]["weekend"]:
+            sys.stdout.write("\x1b[0m")
+
         sys.stdout.write("\n")
 
 
@@ -36,35 +46,45 @@ def filter(items, periodicity="day", author=""):
     bars = OrderedDict()
     for i in items:
         # Extract the day/month/year part of the date.
-        p = i[0][:10]
+        p = i["timestamp"][:10]
+        is_weekend = False
         if periodicity == "month":
-            p = i[0][:7]
+            p = i["timestamp"][:7]
         elif periodicity == "year":
-            p = i[0][:4]
-
+            p = i["timestamp"][:4]
+        else:
+            is_weekend = (datetime.datetime.
+                          strptime(i["timestamp"][:10], "%Y-%m-%d").
+                          weekday() > 4)
         # Filter by author.
         if author != "":
-            if author not in i[1]:
+            if author not in i["author"]:
                 continue
 
         if p not in bars:
-            bars[p] = 0
-        bars[p] += 1
+            bars[p] = {"timestamp": i["timestamp"],
+                       "commits": 0,
+                       "weekend": is_weekend}
+        bars[p]["commits"] += 1
 
     return bars
 
 
 def get_scores(items):
     """Compute normalized scores (0-1) for commit numbers."""
-    vals = [items[i] for i in items]
+    vals = [items[i]["commits"] for i in items]
     vals.append(0)
 
     xmin = min(vals)
     xmax = max(vals)
 
     # Normalize.
-    return OrderedDict(
-        (i, [items[i], normalize(items[i], xmin, xmax)]) for i in items)
+    out = OrderedDict()
+    for i in items:
+        out[i] = items[i].copy()
+        out[i]["score"] = normalize(items[i]["commits"], xmin, xmax)
+
+    return out
 
 
 def get_log(after, before, reverse):
@@ -80,7 +100,8 @@ def get_log(after, before, reverse):
     items = []
     for o in check_output(args, universal_newlines=True, shell=False) \
             .split("\n"):
-        items.append(o.split("|"))
+        c = o.split("|")
+        items.append({"timestamp": c[0], "author": c[1]})
 
     if reverse:
         items.reverse()
@@ -95,7 +116,8 @@ def normalize(x, xmin, xmax):
 
 def main():
     """Commandline entry point."""
-    p = argparse.ArgumentParser(description="git commit bars on the terminal")
+    p = argparse.ArgumentParser(description="Shows git commit count bars. "
+                                "Weekends are coloured.")
     p.add_argument("-p", "--periodicity", action="store", dest="periodicity",
                    type=str, required=False, default="month",
                    help="day, month, year")
@@ -129,7 +151,10 @@ def main():
     filtered = filter(items, args.periodicity, args.author)
     scores = get_scores(filtered)
     if scores:
-        print("%d commits" % (sum([filtered[f] for f in filtered]),))
+        print("%d commits over %d %s(s)" %
+              (sum([filtered[f]["commits"] for f in filtered]),
+               len(scores),
+               args.periodicity))
         print_bars(scores)
     else:
         print("No commits to plot")
