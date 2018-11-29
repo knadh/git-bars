@@ -18,6 +18,8 @@ import argparse
 from collections import OrderedDict
 import datetime
 
+import pkg_resources
+__version__ = pkg_resources.require("git-bars")[0].version
 
 def print_bars(items, block=u"\u2580", width=50):
     """Print unicode bar representations of dates and scores."""
@@ -117,7 +119,7 @@ def normalize(x, xmin, xmax):
 def main():
     """Commandline entry point."""
     p = argparse.ArgumentParser(description="Shows git commit count bars. "
-                                "Weekends are coloured.")
+                                "Weekends are coloured. (version " + __version__ + ")")
     p.add_argument("-p", "--periodicity", action="store", dest="periodicity",
                    type=str, required=False, default="month",
                    help="day, month, year")
