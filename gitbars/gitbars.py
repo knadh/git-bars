@@ -50,13 +50,15 @@ def filter(items, periodicity="day", author=""):
         # Extract the day/month/year part of the date.
         p = i["timestamp"][:10]
         is_weekend = False
-        if periodicity == "month":
+        if periodicity == "week":
+            p = datetime.datetime.strptime(p, "%Y-%m-%d").strftime("%V")
+        elif periodicity == "month":
             p = i["timestamp"][:7]
         elif periodicity == "year":
             p = i["timestamp"][:4]
         else:
             is_weekend = (datetime.datetime.
-                          strptime(i["timestamp"][:10], "%Y-%m-%d").
+                          strptime(p, "%Y-%m-%d").
                           weekday() > 4)
         # Filter by author.
         if author != "":
@@ -122,7 +124,7 @@ def main():
                                 "Weekends are coloured. (version " + __version__ + ")")
     p.add_argument("-p", "--periodicity", action="store", dest="periodicity",
                    type=str, required=False, default="month",
-                   help="day, month, year")
+                   help="day, week, month, year")
 
     p.add_argument("-u", "--author", action="store", dest="author",
                    type=str, required=False, default="",
