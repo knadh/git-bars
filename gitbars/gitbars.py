@@ -124,7 +124,7 @@ def main():
                                 "Weekends are coloured. (version " + __version__ + ")")
     p.add_argument("-p", "--periodicity", action="store", dest="periodicity",
                    type=str, required=False, default="month",
-                   help="day, week, month, year")
+                   choices=["day", "week", "month", "year"])
 
     p.add_argument("-u", "--author", action="store", dest="author",
                    type=str, required=False, default="",
