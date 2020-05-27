@@ -13,10 +13,10 @@ Licensed under the MIT License.
 """
 
 import sys
-from subprocess import check_output
 import argparse
-from collections import OrderedDict
 import datetime
+from subprocess import check_output
+from collections import OrderedDict
 
 import pkg_resources
 __version__ = pkg_resources.require("git-bars")[0].version
@@ -51,7 +51,7 @@ def filter(items, periodicity="day", author=""):
         p = i["timestamp"][:10]
         is_weekend = False
         if periodicity == "week":
-            p = datetime.datetime.strptime(p, "%Y-%m-%d").strftime("%V")
+            p = datetime.datetime.strptime(p, "%Y-%m-%d").strftime("%Y/%V")
         elif periodicity == "month":
             p = i["timestamp"][:7]
         elif periodicity == "year":
