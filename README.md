@@ -1,3 +1,5 @@
+<a href="https://zerodha.tech"><img src="https://zerodha.tech/static/images/github-badge.svg" align="right" /></a>
+
 # git-bars
 
 `git-bars` is a utility that uses `git log` to render a simple git commit activity bars on the terminal. Commit activity can be grouped by day, month, year, between two dates, and can be filtered by author.
