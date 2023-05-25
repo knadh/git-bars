@@ -17,31 +17,92 @@ import argparse
 import datetime
 from subprocess import check_output
 from collections import OrderedDict
+from colorama import Fore, Style
 
 import pkg_resources
 __version__ = pkg_resources.require("git-bars")[0].version
 
-def print_bars(items, block=u"\u2580", width=50):
+# Define the colors for each weekday
+colors = {
+    "Monday": Fore.RED,
+    "Tuesday": Fore.GREEN,
+    "Wednesday": Fore.YELLOW,
+    "Thursday": Fore.BLUE,
+    "Friday": Fore.MAGENTA,
+    "Saturday": Fore.CYAN,
+    "Sunday": Fore.WHITE
+}
+
+def print_bars(items, periodicity, block=u"\u2580", width=50):
     """Print unicode bar representations of dates and scores."""
-    for i in items:
-        num = str(items[i]["commits"])
+    if periodicity == "day":
+        # Get the first and last elements of the array
+        first_date = next(iter(items))
+        last_date = next(reversed(items))
 
-        sys.stdout.write(i)
-        sys.stdout.write("  ")
-        sys.stdout.write(num)
-        sys.stdout.write((5 - len(num)) * " ")
+        max_day_name_length = max(len(datetime.datetime.strptime(i[:10], "%Y-%m-%d").strftime("%A")) for i in items)
 
-        # Colour the weekend bars.
-        if items[i]["weekend"]:
-            sys.stdout.write("\033[94m")
+        # Iterate through every date between the first and last dates
+        current_date = last_date
+        while current_date <= first_date:
+            if current_date in items:
+                item = items[current_date]
+                num = str(item["commits"])
+            else:
+                num = "0"
 
-        sys.stdout.write(block * int(items[i]["score"] * width))
+            date_string = current_date
+            day_name = datetime.datetime.strptime(date_string, "%Y-%m-%d").strftime("%A")
 
-        if items[i]["weekend"]:
-            sys.stdout.write("\x1b[0m")
+            sys.stdout.write(date_string)
+            sys.stdout.write("  ")
 
-        sys.stdout.write("\n")
+            # Choose the color based on the weekday
+            color = colors[day_name]
+            sys.stdout.write(color)
+            sys.stdout.write(day_name.ljust(max_day_name_length))
+            sys.stdout.write("  ")
+            sys.stdout.write(num)
+            sys.stdout.write((5 - len(num)) * " ")
 
+            # Colour the weekend bars.
+            if current_date in items and items[current_date]["weekend"]:
+                sys.stdout.write("\033[94m")
+
+            sys.stdout.write(block * int(items.get(current_date, {"score": 0})["score"] * width))
+
+            if current_date in items and items[current_date]["weekend"]:
+                sys.stdout.write("\x1b[0m")
+
+            sys.stdout.write("\n")
+
+            if (day_name == "Sunday"):
+                sys.stdout.write("\n")
+
+            # Move to the next date
+            curr_date = datetime.datetime.strptime(current_date, '%Y-%m-%d').date()
+            next_date = curr_date + datetime.timedelta(days=1)
+            current_date = next_date.strftime('%Y-%m-%d')
+
+    else:
+        for i in items:
+            num = str(items[i]["commits"])
+
+            sys.stdout.write(i)
+            sys.stdout.write("  ")
+            sys.stdout.write(num)
+            sys.stdout.write((5 - len(num)) * " ")
+
+            # Colour the weekend bars.
+            if items[i]["weekend"]:
+                sys.stdout.write("\033[94m")
+
+            sys.stdout.write(block * int(items[i]["score"] * width))
+
+            if items[i]["weekend"]:
+                sys.stdout.write("\x1b[0m")
+
+            sys.stdout.write("\n")
 
 def filter(items, periodicity="day", author=""):
     """Filter entries by periodicity and author."""
@@ -159,7 +220,7 @@ def main():
               (sum([filtered[f]["commits"] for f in filtered]),
                len(scores),
                args.periodicity))
-        print_bars(scores)
+        print_bars(scores, args.periodicity)
     else:
         print("No commits to plot")
 
