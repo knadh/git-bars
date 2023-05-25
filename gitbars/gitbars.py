@@ -54,12 +54,11 @@ def print_bars(items, periodicity, block=u"\u2580", width=50):
             date_string = current_date
             day_name = datetime.datetime.strptime(date_string, "%Y-%m-%d").strftime("%A")
 
-            sys.stdout.write(date_string)
-            sys.stdout.write("  ")
-
             # Choose the color based on the weekday
             color = colors[day_name]
             sys.stdout.write(color)
+            sys.stdout.write(date_string)
+            sys.stdout.write("  ")
             sys.stdout.write(day_name.ljust(max_day_name_length))
             sys.stdout.write("  ")
             sys.stdout.write(num)
