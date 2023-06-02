@@ -33,7 +33,7 @@ colors = {
     "Sunday": Fore.WHITE
 }
 
-def print_bars(items, periodicity, block=u"\u2580", width=50):
+def print_bars(items, periodicity, colorize, block=u"\u2580", width=50):
     """Print unicode bar representations of dates and scores."""
     if periodicity == "day":
         # Get the first and last elements of the array
@@ -56,7 +56,11 @@ def print_bars(items, periodicity, block=u"\u2580", width=50):
 
             # Choose the color based on the weekday
             color = colors[day_name]
-            sys.stdout.write(color)
+
+            if colorize:
+                sys.stdout.write(color)
+                sys.stdout.write(Style.BRIGHT)
+
             sys.stdout.write(date_string)
             sys.stdout.write("  ")
             sys.stdout.write(day_name.ljust(max_day_name_length))
@@ -202,6 +206,10 @@ def main():
                    type=bool, required=False, default=False,
                    help="reverse date order")
 
+    p.add_argument("-c", "--colorize", action="store", dest="colorize",
+                   type=bool, required=False, default=False,
+                   help="colorize days")
+
     args = p.parse_args()
 
     """Invoke the utility."""
@@ -219,7 +227,7 @@ def main():
               (sum([filtered[f]["commits"] for f in filtered]),
                len(scores),
                args.periodicity))
-        print_bars(scores, args.periodicity)
+        print_bars(scores, args.periodicity, args.colorize)
     else:
         print("No commits to plot")
 
