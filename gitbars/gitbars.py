@@ -16,16 +16,21 @@ import sys
 import argparse
 import datetime
 from subprocess import check_output
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 
 import pkg_resources
 __version__ = pkg_resources.require("git-bars")[0].version
 
 
+Item = namedtuple(
+    "Item", ["timestamp", "is_weekend", "author", "commits", "score"])
+Item.__new__.__defaults__ = (None, False, "none", 0, 0)
+
+
 def print_bars(items, block=u"\u2580", width=50):
     """Print unicode bar representations of dates and scores."""
     for i in items:
-        num = str(items[i]["commits"])
+        num = str(items[i].commits)
 
         sys.stdout.write(i)
         sys.stdout.write("  ")
@@ -33,12 +38,12 @@ def print_bars(items, block=u"\u2580", width=50):
         sys.stdout.write((5 - len(num)) * " ")
 
         # Colour the weekend bars.
-        if items[i]["weekend"]:
+        if items[i].is_weekend:
             sys.stdout.write("\033[94m")
 
-        sys.stdout.write(block * int(items[i]["score"] * width))
+        sys.stdout.write(block * int(items[i].score * width))
 
-        if items[i]["weekend"]:
+        if items[i].is_weekend:
             sys.stdout.write("\x1b[0m")
 
         sys.stdout.write("\n")
@@ -50,7 +55,7 @@ def filter(items, periodicity="day", author=""):
 
     for i in items:
         # Extract the day/month/year part of the date.
-        d = i["timestamp"]
+        d = i.timestamp
         if periodicity == "week":
             label = d.strftime("%Y/%V")
         elif periodicity == "month":
@@ -62,22 +67,21 @@ def filter(items, periodicity="day", author=""):
 
         # Filter by author.
         if author != "":
-            if author not in i["author"]:
+            if author not in i.author:
                 continue
 
         if label not in bars:
-            bars[label] = {"timestamp": i["timestamp"],
-                           "commits": 0,
-                           "weekend": i["weekend"]}
-
-        bars[label]["commits"] += i["commits"]
+            bars[label] = Item(*i)
+        else:
+            bars[label] = bars[label]._replace(
+                commits=bars[label].commits + i.commits)
 
     return bars
 
 
 def get_scores(items):
     """Compute normalized scores (0-1) for commit numbers."""
-    vals = [items[i]["commits"] for i in items]
+    vals = [items[i].commits for i in items]
     vals.append(0)
 
     xmin = min(vals)
@@ -86,8 +90,8 @@ def get_scores(items):
     # Normalize.
     out = OrderedDict()
     for i in items:
-        out[i] = items[i].copy()
-        out[i]["score"] = normalize(items[i]["commits"], xmin, xmax)
+        out[i] = Item(
+            *(items[i]))._replace(score=normalize(items[i].commits, xmin, xmax))
 
     return out
 
@@ -103,15 +107,11 @@ def get_log(after, before, reverse=False, fill=False):
         args.append("--before=%s" % (before,))
 
     items = []
-    for o in check_output(args, universal_newlines=True, shell=False) \
-            .split("\n"):
+    for o in check_output(args, universal_newlines=True, shell=False).split("\n"):
         c = o.split("|")
-        d = datetime.datetime.strptime(c[0], "%Y-%m-%d %H:%M:%S %z")
-        items.append({"timestamp": d,
-                      "author": c[1],
-                      "weekend": d.weekday() > 4,
-                      "commits": 1
-                    })
+        t = datetime.datetime.strptime(c[0], "%Y-%m-%d %H:%M:%S %z")
+        items.append(
+            Item(timestamp=t, author=c[1], is_weekend=t.weekday() > 4, commits=1))
 
     if fill:
         fill_dates(items)
@@ -132,14 +132,12 @@ def fill_dates(data):
     n = len(data)
     i = 0
     while i < n - 1:
-        cur = data[i]["timestamp"]
-        if (data[i+1]["timestamp"] - cur).days > 1:
-            data.insert(i+1, {
-                "timestamp": cur + datetime.timedelta(days=1),
-                "author": "none",
-                "commits": 0,
-                "weekend": cur.weekday() > 4
-            })
+        cur = data[i].timestamp
+        if (data[i+1].timestamp - cur).days > 1:
+            data.insert(i+1, Item(
+                timestamp=cur + datetime.timedelta(days=1),
+                is_weekend=cur.weekday() > 4
+            ))
             n += 1
         i += 1
 
@@ -187,7 +185,7 @@ def main():
     scores = get_scores(filtered)
     if scores:
         print("%d commits over %d %s(s)" %
-              (sum([filtered[f]["commits"] for f in filtered]),
+              (sum([filtered[f].commits for f in filtered]),
                len(scores),
                args.periodicity))
         print_bars(scores)
