@@ -21,6 +21,7 @@ from collections import OrderedDict
 import pkg_resources
 __version__ = pkg_resources.require("git-bars")[0].version
 
+
 def print_bars(items, block=u"\u2580", width=50):
     """Print unicode bar representations of dates and scores."""
     for i in items:
@@ -46,30 +47,30 @@ def print_bars(items, block=u"\u2580", width=50):
 def filter(items, periodicity="day", author=""):
     """Filter entries by periodicity and author."""
     bars = OrderedDict()
+
     for i in items:
         # Extract the day/month/year part of the date.
-        p = i["timestamp"][:10]
-        is_weekend = False
+        d = i["timestamp"]
         if periodicity == "week":
-            p = datetime.datetime.strptime(p, "%Y-%m-%d").strftime("%Y/%V")
+            label = d.strftime("%Y/%V")
         elif periodicity == "month":
-            p = i["timestamp"][:7]
+            label = d.strftime("%Y-%m")
         elif periodicity == "year":
-            p = i["timestamp"][:4]
+            label = d.strftime("%Y")
         else:
-            is_weekend = (datetime.datetime.
-                          strptime(p, "%Y-%m-%d").
-                          weekday() > 4)
+            label = d.strftime("%Y-%m-%d %a")
+
         # Filter by author.
         if author != "":
             if author not in i["author"]:
                 continue
 
-        if p not in bars:
-            bars[p] = {"timestamp": i["timestamp"],
-                       "commits": 0,
-                       "weekend": is_weekend}
-        bars[p]["commits"] += 1
+        if label not in bars:
+            bars[label] = {"timestamp": i["timestamp"],
+                           "commits": 0,
+                           "weekend": i["weekend"]}
+
+        bars[label]["commits"] += i["commits"]
 
     return bars
 
@@ -91,10 +92,10 @@ def get_scores(items):
     return out
 
 
-def get_log(after, before, reverse):
+def get_log(after, before, reverse=False, fill=False):
     """Return the list of git log from the git log command."""
     # 2018-01-01 00:00:00|author@author.com
-    args = ["git", "log", '--pretty=format:%ai|%ae']
+    args = ["git", "log", "--pretty=format:%ai|%ae", "--reverse"]
 
     if after:
         args.append("--after=%s" % (after,))
@@ -105,9 +106,17 @@ def get_log(after, before, reverse):
     for o in check_output(args, universal_newlines=True, shell=False) \
             .split("\n"):
         c = o.split("|")
-        items.append({"timestamp": c[0], "author": c[1]})
+        d = datetime.datetime.strptime(c[0], "%Y-%m-%d %H:%M:%S %z")
+        items.append({"timestamp": d,
+                      "author": c[1],
+                      "weekend": d.weekday() > 4,
+                      "commits": 1
+                    })
 
-    if reverse:
+    if fill:
+        fill_dates(items)
+
+    if not reverse:
         items.reverse()
 
     return items
@@ -116,6 +125,23 @@ def get_log(after, before, reverse):
 def normalize(x, xmin, xmax):
     """Normalize a number to a 0-1 range given a min and max of its set."""
     return float(x - xmin) / float(xmax - xmin)
+
+
+def fill_dates(data):
+    """Fill missing dates where there were no commits."""
+    n = len(data)
+    i = 0
+    while i < n - 1:
+        cur = data[i]["timestamp"]
+        if (data[i+1]["timestamp"] - cur).days > 1:
+            data.insert(i+1, {
+                "timestamp": cur + datetime.timedelta(days=1),
+                "author": "none",
+                "commits": 0,
+                "weekend": cur.weekday() > 4
+            })
+            n += 1
+        i += 1
 
 
 def main():
@@ -142,17 +168,22 @@ def main():
                    type=bool, required=False, default=False,
                    help="reverse date order")
 
+    p.add_argument("-f", "--fill", action="store", dest="fill",
+                   type=bool, required=False, default=False,
+                   help="fill dates (with no commits) on the graph")
+
     args = p.parse_args()
 
     """Invoke the utility."""
     items = []
     try:
-        items = get_log(args.after, args.before, args.reverse)
+        items = get_log(args.after, args.before, args.reverse, args.fill)
     except Exception as e:
         print("error running 'git log': %s" % (e,))
         return
 
     filtered = filter(items, args.periodicity, args.author)
+
     scores = get_scores(filtered)
     if scores:
         print("%d commits over %d %s(s)" %
