@@ -96,10 +96,12 @@ def get_scores(items):
     return out
 
 
-def get_log(after, before, reverse=False, fill=False):
+def get_log(repo, after, before, reverse=False, fill=False):
     """Return the list of git log from the git log command."""
     # 2018-01-01 00:00:00|author@author.com
     args = ["git", "log", "--pretty=format:%ai|%ae", "--reverse"]
+    if repo:
+        args = [args[0]] + ["-C", f'{repo}'] + args[1:]
 
     if after:
         args.append("--after=%s" % (after,))
@@ -170,12 +172,16 @@ def main():
                    type=bool, required=False, default=False,
                    help="fill dates (with no commits) on the graph")
 
+    p.add_argument("repo", type=str, nargs='?', default="",
+                   help="Path to a git repository")
+
     args = p.parse_args()
 
     """Invoke the utility."""
     items = []
     try:
-        items = get_log(args.after, args.before, args.reverse, args.fill)
+        items = get_log(args.repo, args.after, args.before, args.reverse,
+                        args.fill)
     except Exception as e:
         print("error running 'git log': %s" % (e,))
         return

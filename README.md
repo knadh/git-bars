@@ -5,8 +5,7 @@
 `git-bars` is a utility that uses `git log` to render a simple git commit activity bars on the terminal. Commit activity can be grouped by day, month, year, between two dates, and can be filtered by author.
 
 ```shell
-$> cd /path/to/a/git/repo
-$> git-bars -p day
+$> git-bars -p day /path/to/a/git/repo
 
 78 commits
 2018-11-27 4    ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀

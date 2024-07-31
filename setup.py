@@ -4,7 +4,7 @@ from setuptools import setup
 
 setup(
     name="git-bars",
-    version="1.7",
+    version="1.8",
     description="A utility for visualising git commit activity as bars on the terminal",
     author="Kailash Nadh",
     author_email="kailash@nadh.in",
